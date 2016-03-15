@@ -60,3 +60,7 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+# Custom for CSV files of logs (and other formats)
+*.csv
+*.txt
