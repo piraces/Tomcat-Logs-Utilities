@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Author: Raúl Piracés Alastuey
+# Execution: python parser.py inputFile outputFile (default|custom)
 
 """
 Program to parse and modify logs from Tomcat (v7) with default logging configuration.
@@ -12,6 +13,7 @@ HTTP user session.
 
 import sys
 import csv
+import fileinput
 import datetime
 from heuristic import Identification
 
@@ -19,10 +21,14 @@ from heuristic import Identification
 #line = "User Session ID; Host; User Auth; Date & Time; Request; HTTPStatusCode; Bytes Sent (-headers); " \
 #       "Request Method; Query String; Referer (header); User Agent\n"
 
-line = "XForwardedFor; IP; User; Timestamp; Event; Tipo; Bytes; Session\n"
+#line = "XForwardedFor; IP; User; Timestamp; Event; Tipo; Bytes; Session\n"
+line = "IP; Unknown; User; Timestamp; Event; Tipo; Bytes; Session\n"
+
+# Temporary file to make CSV conversion.
+tempFile = "temp.csv"
 
 # Numbers of certain rows of the CSV. Useful for not touching the code.
-ip_row = 1
+ip_row = 0
 date_row = 3
 user_row = 2
 session_row = 6
@@ -68,6 +74,7 @@ def compare_timestamp(timestamp1, timestamp2):
 
 # Session changer. Applies an heuristic for identifying HTTP user sessions.
 def change_session(change, list):
+    # TODO: Improve performance...
     session = change.session
     for ident in list:
         if ident.ip == change.ip and ident.user != change.user:
@@ -93,6 +100,27 @@ def change_session(change, list):
             identifications.append(change)
     return session
 
+# CSV correction. For Null bytes and other problems.
+def correct_csv(filename):
+    # Corrects the CSV "inplace"
+    for line in fileinput.FileInput(filename, inplace=1):
+        line = line.replace('\0', '')
+        sys.stdout.write(line)
+    fileinput.close()
+
+# CSV Parser. Applies user session heuristic (default Tomcat logging version).
+def default_csv_parser(filename, output):
+    # Corrects the CSV in first place
+    correct_csv(filename)
+    with open(filename, mode="rb") as infile:
+        reader = csv.reader(infile, delimiter=" ")
+        with open(tempFile, mode="w") as outfile:
+            writer = csv.writer(outfile, delimiter=';')
+            for row in reader:
+                # Ignore one column (offset)
+                writer.writerow((row[0], row[1], row[2], row[3], row[5], row[6], row[7]))
+    # Goes to main parser
+    csv_parser(tempFile, output)
 
 # CSV Parser. Applies user session heuristic.
 def csv_parser(filename, output):
@@ -107,8 +135,8 @@ def csv_parser(filename, output):
             # If HTTP SESSION is not available, the row is ignored
             #if "-" not in row[0]:
 
-            # Format timestamp for best further reatment
-            #row[date_row] = date_time_format(row[date_row])
+            # Format timestamp for best further treatment
+            row[date_row] = date_time_format(row[date_row])
             id = Identification(row[ip_row], row[date_row], row[user_row])
             identifications.append(id)
             # Attempt to apply user session heuristic
@@ -121,10 +149,14 @@ def csv_parser(filename, output):
 
 # Main method. Applies heuristics and creates a new CSV for data & process mining.
 def main():
-    if len(sys.argv) > 1:
-        csv_parser(sys.argv[1], sys.argv[2])
+    if len(sys.argv) > 3:
+        if sys.argv[3].lower() == "default":
+            default_csv_parser(sys.argv[1], sys.argv[2])
+        elif sys.argv[3].lower() == "custom":
+            csv_parser(sys.argv[1], sys.argv[2])
     else:
-        print "Introduzca como argumentos el nombre del fichero de log y el fichero de salida"
+        print "Enter as arguments the name of the log file, the output file and the parser type (default | custom)." \
+              "In this order."
 
 # Execution of main method
 if __name__ == '__main__':
