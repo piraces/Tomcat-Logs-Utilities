@@ -15,13 +15,14 @@ import sys
 import csv
 import fileinput
 import datetime
+import time
 from heuristic import Identification
 
 # Header line of the output CSV
-#line = "User Session ID; Host; User Auth; Date & Time; Request; HTTPStatusCode; Bytes Sent (-headers); " \
-#       "Request Method; Query String; Referer (header); User Agent\n"
+lineComplete = "User Session ID; Host; User Auth; Date & Time; Request; HTTPStatusCode; Bytes Sent (-headers); " \
+       "Request Method; Query String; Referer (header); User Agent\n"
 
-#line = "XForwardedFor; IP; User; Timestamp; Event; Tipo; Bytes; Session\n"
+lineCustom = "XForwardedFor; IP; User; Timestamp; Event; Tipo; Bytes; Session\n"
 line = "IP; Unknown; User; Timestamp; Event; Tipo; Bytes; Session\n"
 
 # Temporary file to make CSV conversion.
@@ -38,6 +39,9 @@ session_time = 30
 
 # List of identifications (certain different entries of logs)
 identifications = []
+
+# Performance
+last_timestamp = ""
 
 # Date and Time formatter (DD/MM/YYYY HH:MM:SS)
 def date_time_format(row):
@@ -66,27 +70,30 @@ def compare_timestamp(timestamp1, timestamp2):
     t1 = datetime.datetime.strptime(timestamp1.strip(), '%d/%m/%Y %H:%M:%S')
     t2 = datetime.datetime.strptime(timestamp2.strip(), '%d/%m/%Y %H:%M:%S')
 
-    difference = t1 - t2
+    # Convert to unix timestamp
+    d1_ts = time.mktime(t1.timetuple())
+    d2_ts = time.mktime(t2.timetuple())
 
-    difference = difference.days * 24 * 60
+    # Now in seconds, division to get minutes.
+
+    difference = (d1_ts-d2_ts) / 60
+
     return difference
-
 
 # Session changer. Applies an heuristic for identifying HTTP user sessions.
 def change_session(change, list):
-    # TODO: Improve performance...
     session = change.session
     for ident in list:
         if ident.ip == change.ip and ident.user != change.user:
             # If the entries have the same IP address, and differs in user
-            hex_dig = hash(Identification.get_hash(change))
+            hex_dig = Identification.get_hash(change)
             identifications.remove(change)
             change.session = hex_dig
             identifications.remove(ident)
             identifications.append(change)
         elif ident.ip == change.ip and (compare_timestamp(ident.timestamp, change.timestamp) > session_time):
             # If the entries have the same IP address, and timestamp difference are "big" enough
-            hex_dig = hash(Identification.get_hash(change))
+            hex_dig = Identification.get_hash(change)
             identifications.remove(change)
             change.session = hex_dig
             identifications.remove(ident)
@@ -98,11 +105,15 @@ def change_session(change, list):
             change.session = session
             identifications.remove(ident)
             identifications.append(change)
+        elif compare_timestamp(last_timestamp, ident.timestamp) > session_time:
+            # If IP has been out for a long time
+            identifications.remove(ident)
     return session
 
 # CSV correction. For Null bytes and other problems.
 def correct_csv(filename):
     # Corrects the CSV "inplace"
+    print ("--> Correcting CSV (for bad characters)")
     for line in fileinput.FileInput(filename, inplace=1):
         line = line.replace('\0', '')
         sys.stdout.write(line)
@@ -112,6 +123,7 @@ def correct_csv(filename):
 def default_csv_parser(filename, output):
     # Corrects the CSV in first place
     correct_csv(filename)
+    print ("--> Changing format of CSV (delimiters)")
     with open(filename, mode="rb") as infile:
         reader = csv.reader(infile, delimiter=" ")
         with open(tempFile, mode="w") as outfile:
@@ -120,10 +132,11 @@ def default_csv_parser(filename, output):
                 # Ignore one column (offset)
                 writer.writerow((row[0], row[1], row[2], row[3], row[5], row[6], row[7]))
     # Goes to main parser
-    csv_parser(tempFile, output)
+    csv_parser(tempFile, output, 1)
 
 # CSV Parser. Applies user session heuristic.
-def csv_parser(filename, output):
+def csv_parser(filename, output, date):
+    print ("--> Applying heuristics & parsing CSV")
     with open(filename, "rb") as file_a:
         r = csv.reader(file_a, delimiter=';')
         file_b = open(output, "w")
@@ -136,7 +149,11 @@ def csv_parser(filename, output):
             #if "-" not in row[0]:
 
             # Format timestamp for best further treatment
-            row[date_row] = date_time_format(row[date_row])
+            if date:
+                row[date_row] = date_time_format(row[date_row])
+            # Sets last timestamp
+            global last_timestamp
+            last_timestamp = row[date_row]
             id = Identification(row[ip_row], row[date_row], row[user_row])
             identifications.append(id)
             # Attempt to apply user session heuristic
@@ -146,16 +163,19 @@ def csv_parser(filename, output):
         file_a.close()
         file_b.close()
 
-
 # Main method. Applies heuristics and creates a new CSV for data & process mining.
 def main():
     if len(sys.argv) > 3:
         if sys.argv[3].lower() == "default":
+            print ("\n--> Using CSV header (default): \n" + line + "\n")
             default_csv_parser(sys.argv[1], sys.argv[2])
+            print ("\nDone! Results available in: " + sys.argv[2] + "\n")
         elif sys.argv[3].lower() == "custom":
-            csv_parser(sys.argv[1], sys.argv[2])
+            print ("Using CSV header (custom): \n" + line + "\n")
+            csv_parser(sys.argv[1], sys.argv[2], 0)
+            print ("Done! Results available in: " + sys.argv[2] + "\n")
     else:
-        print "Enter as arguments the name of the log file, the output file and the parser type (default | custom)." \
+        print "Enter as arguments the name of the log file, the output file and the parser type (default | custom). " \
               "In this order."
 
 # Execution of main method
