@@ -21,20 +21,21 @@ from cases import set_use_case
 
 # Header line of the output CSV
 lineComplete = "User Session ID; Host; User Auth; Date & Time; Request; HTTPStatusCode; Bytes Sent (-headers); " \
-       "Request Method; Query String; Referer (header); User Agent\n"
+       "Request Method; Query String; Referer (header); User Agent; Session; Case; Case-id\n"
 
-lineCustom = "XForwardedFor; IP; User; Timestamp; Event; Tipo; Bytes; Session; Case; Case-id\n"
-line = "IP; Unknown; User; Timestamp; Event; Tipo; Bytes; Session; Case; Case-id\n"
+line = "CaseId; XForwardedFor; IP; User; Timestamp; Event; Tipo; Bytes; User Agent; Referer (header); Session; Case; " \
+       "Case-id\n"
+lineDefault = "IP; Unknown; User; Timestamp; Event; Tipo; Bytes; Session; Case; Case-id\n"
 
 # Temporary file to make CSV conversion.
 tempFile = "temp.csv"
 
 # Numbers of certain rows of the CSV. Useful for not touching the code.
-ip_row = 0
-user_row = 2
-date_row = 3
-event_row = 4
-session_row = 6
+ip_row = 2
+user_row = 3
+date_row = 4
+event_row = 5
+# session_row = 6
 
 # Custom time for session heuristic.
 session_time = 30
@@ -44,7 +45,7 @@ identifications = []
 
 # Performance
 last_timestamp = ""
-last_use_case = 0
+last_use_case = 1
 
 # Date and Time formatter (DD/MM/YYYY HH:MM:SS)
 def date_time_format(row):
@@ -163,12 +164,13 @@ def csv_parser(filename, output, date):
             # Attempt to apply user session heuristic
             session = change_session(id, identifications)
             # Attempt to apply use cases heuristic
-            case = set_use_case(id)
+            case = set_use_case(id, row[event_row])
             last_use_case = case
             # Append 'case id' column (and others)
             row.append(session)
             row.append(case)
-            row.append(case.append(session))
+            caseid = str(session) + str(case)
+            row.append(caseid)
             w.writerow(row)
         file_a.close()
         file_b.close()
@@ -181,7 +183,7 @@ def main():
             default_csv_parser(sys.argv[1], sys.argv[2])
             print ("\nDone! Results available in: " + sys.argv[2] + "\n")
         elif sys.argv[3].lower() == "custom":
-            print ("Using CSV header (custom): \n" + line + "\n")
+            print ("\nUsing CSV header (custom): \n" + line + "\n")
             csv_parser(sys.argv[1], sys.argv[2], 0)
             print ("Done! Results available in: " + sys.argv[2] + "\n")
     else:
