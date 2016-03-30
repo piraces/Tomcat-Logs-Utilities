@@ -175,7 +175,7 @@ def csv_parser(filename, output, date):
             # Attempt to apply user session heuristic
             session = change_session(id, identifications)
             # Attempt to apply use cases heuristic
-            case = cases_heuristic.set_use_case_h1(id, row[event_row])
+            case = cases_heuristic.set_use_case_h3(id, row[event_row])
             last_use_case = case
             # Append 'case id' column (and others)
             row.append(str(session))
@@ -218,11 +218,17 @@ def main():
         if sys.argv[3].lower() == "default":
             print ("\n--> Using CSV header (default): \n" + line + "\n")
             default_csv_parser(sys.argv[1], sys.argv[2])
-            print ("\nDone! Results available in: " + sys.argv[2] + "\n")
         elif sys.argv[3].lower() == "custom":
             print ("\nUsing CSV header (custom): \n" + line + "\n")
             csv_parser(sys.argv[1], sys.argv[2], 0)
-            print ("Done! Results available in: " + sys.argv[2] + "\n")
+        result = 100.0 - ((float(cases_heuristic.identifiedAttacks) / float(cases_heuristic.totalEvents)) * 100.0)
+        result2 = 100.0 - ((float(cases_heuristic.strangeEvents) / float(cases_heuristic.totalEvents)) * 100.0)
+        print ("\n\nAccuracy (strange): " + str(result2) + " %")
+        print ("Accuracy (strange + not OK): " + str(result) + " %")
+        print ("Total events: " + str(cases_heuristic.totalEvents))
+        print ("Strange events: " + str(cases_heuristic.strangeEvents))
+        print ("Identified attack events: " + str(cases_heuristic.identifiedAttacks))
+        print ("Done! Results available in: " + sys.argv[2] + "\n")
     else:
         print "Enter as arguments the name of the log file, the output file and the parser type (default | custom). " \
               "In this order."
