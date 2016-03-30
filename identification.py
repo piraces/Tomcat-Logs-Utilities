@@ -11,10 +11,12 @@ Considers IP address, timestamp of petition, user,
 
 class Identification(object):
 
-    def __init__(self, ip, timestamp, user, case):
+    def __init__(self, ip, timestamp, user, status, case):
         self.ip = ip
         self.timestamp = timestamp
         self.user = user
+        self.status = status
+        # Session (initially) is a simple hash of the object
         self.session = self.get_hash()
         self.case = case
 
@@ -36,6 +38,12 @@ class Identification(object):
 
     def get_user(self):
         return self.user
+
+    def set_status(self, status):
+        self.status = status
+
+    def get_status(self):
+        return self.status
 
     def set_session(self):
         self.session = id(self)

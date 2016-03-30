@@ -16,25 +16,37 @@ import csv
 import fileinput
 import datetime
 import time
-from heuristic import Identification
-from cases import set_use_case
+from identification import Identification
+import cases_heuristic
 
-# Header line of the output CSV
-lineComplete = "User Session ID; Host; User Auth; Date & Time; Request; HTTPStatusCode; Bytes Sent (-headers); " \
+# Main pages of possible events. Used for replacing and identifying events.
+pages = ["/attachedFiles/", "library-advanced-search.jsp", "library-build-bibtex.jsp", "library-edit-configuration.jsp",
+    "library-edit-reference.jsp", "library-edit-search.jsp", "library-error.jsp", "library-help.html",
+    "library-pending-tasks.html", "library-quick-search.jsp", "library-save-configuration.jsp",
+    "library-show-publications-bibtex.jsp", "library-show-publications-raw-bibtex.jsp", "library-show-publications.jsp",
+    "library-update-db.jsp"]
+
+# Possible names of events known as "index".
+index = ["GET /PUBLICATIONS HTTP/1",  "GET /PUBLICATIONS/ HTTP/1", "GET / HTTP/1"]
+
+# Header lines of the output CSV
+lineCustom = "User Session ID; Host; User Auth; Date & Time; Request; HTTPStatusCode; Bytes Sent (-headers); " \
        "Request Method; Query String; Referer (header); User Agent; Session; Case; Case-id\n"
 
-line = "CaseId; XForwardedFor; IP; User; Timestamp; Event; Tipo; Bytes; User Agent; Referer (header); Session; Case; " \
-       "Case-id\n"
-lineDefault = "IP; Unknown; User; Timestamp; Event; Tipo; Bytes; Session; Case; Case-id\n"
+linePerfect = "CaseId; XForwardedFor; IP; User; Timestamp; Event; Tipo; Bytes; User Agent; Referer (header); " \
+              "Session; Case; Case-id\n"
+
+line = "IP; Unknown; User; Timestamp; Event; Tipo; Bytes; Session; Case; Case-id\n"
 
 # Temporary file to make CSV conversion.
 tempFile = "temp.csv"
 
-# Numbers of certain rows of the CSV. Useful for not touching the code.
-ip_row = 2
-user_row = 3
-date_row = 4
-event_row = 5
+# Numbers of certain rows of the CSV. Useful for not touching the code. Changes between different headers.
+ip_row = 0
+user_row = 2
+date_row = 3
+event_row = 4
+status_row = 5
 # session_row = 6
 
 # Custom time for session heuristic.
@@ -120,10 +132,11 @@ def correct_csv(filename):
     print ("--> Correcting CSV (for bad characters)")
     for line in fileinput.FileInput(filename, inplace=1):
         line = line.replace('\0', '')
+        line = line.encode("utf-8")
         sys.stdout.write(line)
     fileinput.close()
 
-# CSV Parser. Applies user session heuristic (default Tomcat logging version).
+# CSV Parser. Applies user session & use cases heuristics (default Tomcat logging version).
 def default_csv_parser(filename, output):
     # Corrects the CSV in first place
     correct_csv(filename)
@@ -133,12 +146,13 @@ def default_csv_parser(filename, output):
         with open(tempFile, mode="w") as outfile:
             writer = csv.writer(outfile, delimiter=';')
             for row in reader:
-                # Ignore one column (offset)
+                # Ignore one column (offset - 4)
+                row[5] = "\"" + row[5] + "\""
                 writer.writerow((row[0], row[1], row[2], row[3], row[5], row[6], row[7]))
     # Goes to main parser
     csv_parser(tempFile, output, 1)
 
-# CSV Parser. Applies user session heuristic.
+# CSV Parser. Applies user session & use cases heuristics.
 def csv_parser(filename, output, date):
     print ("--> Applying heuristics & parsing CSV")
     with open(filename, "rb") as file_a:
@@ -149,9 +163,6 @@ def csv_parser(filename, output, date):
         file_b.writelines(line)
         # Reads the entire input file
         for row in r:
-            # If HTTP SESSION is not available, the row is ignored
-            #if "-" not in row[0]:
-
             # Format timestamp for best further treatment
             if date:
                 row[date_row] = date_time_format(row[date_row])
@@ -159,19 +170,45 @@ def csv_parser(filename, output, date):
             global last_timestamp
             global last_use_case
             last_timestamp = row[date_row]
-            id = Identification(row[ip_row], row[date_row], row[user_row], last_use_case)
+            id = Identification(row[ip_row], row[date_row], row[user_row], row[status_row], last_use_case)
             identifications.append(id)
             # Attempt to apply user session heuristic
             session = change_session(id, identifications)
             # Attempt to apply use cases heuristic
-            case = set_use_case(id, row[event_row])
+            case = cases_heuristic.set_use_case_h1(id, row[event_row])
             last_use_case = case
             # Append 'case id' column (and others)
-            row.append(session)
+            row.append(str(session))
             row.append(case)
             caseid = str(session) + str(case)
             row.append(caseid)
             w.writerow(row)
+        file_a.close()
+        file_b.close()
+
+# CSV Parser. Replace event names with other more "legible" and short".
+def replace_event_names(filename, output):
+    print ("--> Replacing event names with legible ones")
+    with open(filename, "rb") as file_a:
+        r = csv.reader(file_a, delimiter=';')
+        file_b = open(output, "w")
+        w = csv.writer(file_b,  delimiter=';')
+        # Writes the CSV header
+        print line
+        file_b.writelines(line)
+        # Reads the entire input file
+        for row in r:
+            found = 0
+            for thing in pages:
+                if thing in row[event_row]:
+                    row[event_row] = thing
+                    found = 1
+                elif index[0] in row[event_row] or index[1] in row[event_row] or index[2] in row[event_row]:
+                    row[event_row] = "index"
+                    found = 1
+            # Quits extra event lines (not important)
+            if found:
+                w.writerow(row)
         file_a.close()
         file_b.close()
 
