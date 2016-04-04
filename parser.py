@@ -137,7 +137,7 @@ def correct_csv(filename):
     fileinput.close()
 
 # CSV Parser. Applies user session & use cases heuristics (default Tomcat logging version).
-def default_csv_parser(filename, output):
+def default_csv_parser(filename, output, heuristic):
     # Corrects the CSV in first place
     correct_csv(filename)
     print ("--> Changing format of CSV (delimiters)")
@@ -150,10 +150,10 @@ def default_csv_parser(filename, output):
                 row[5] = "\"" + row[5] + "\""
                 writer.writerow((row[0], row[1], row[2], row[3], row[5], row[6], row[7]))
     # Goes to main parser
-    csv_parser(tempFile, output, 1)
+    csv_parser(tempFile, output, 1, heuristic)
 
 # CSV Parser. Applies user session & use cases heuristics.
-def csv_parser(filename, output, date):
+def csv_parser(filename, output, date, heuristic):
     print ("--> Applying heuristics & parsing CSV")
     with open(filename, "rb") as file_a:
         r = csv.reader(file_a, delimiter=';')
@@ -175,7 +175,17 @@ def csv_parser(filename, output, date):
             # Attempt to apply user session heuristic
             session = change_session(id, identifications)
             # Attempt to apply use cases heuristic
-            case = cases_heuristic.set_use_case_h3(id, row[event_row])
+            if heuristic.lower() == "h1":
+                case = cases_heuristic.set_use_case_h1(id, row[event_row])
+            elif heuristic.lower() == "h2":
+                case = cases_heuristic.set_use_case_h2(id, row[event_row])
+            elif heuristic.lower() == "h3":
+                case = cases_heuristic.set_use_case_h3(id, row[event_row])
+            elif heuristic.lower() == "h4":
+                case = cases_heuristic.set_use_case_h4(id, row[event_row], identifications)
+            else:
+                # By default, applies the H3 heuristic
+                case = cases_heuristic.set_use_case_h3(id, row[event_row])
             last_use_case = case
             # Append 'case id' column (and others)
             row.append(str(session))
@@ -214,13 +224,13 @@ def replace_event_names(filename, output):
 
 # Main method. Applies heuristics and creates a new CSV for data & process mining.
 def main():
-    if len(sys.argv) > 3:
+    if len(sys.argv) > 4:
         if sys.argv[3].lower() == "default":
             print ("\n--> Using CSV header (default): \n" + line + "\n")
-            default_csv_parser(sys.argv[1], sys.argv[2])
+            default_csv_parser(sys.argv[1], sys.argv[2], sys.argv[3])
         elif sys.argv[3].lower() == "custom":
             print ("\nUsing CSV header (custom): \n" + line + "\n")
-            csv_parser(sys.argv[1], sys.argv[2], 0)
+            csv_parser(sys.argv[1], sys.argv[2], 0, sys.argv[3])
         result = 100.0 - ((float(cases_heuristic.identifiedAttacks) / float(cases_heuristic.totalEvents)) * 100.0)
         result2 = 100.0 - ((float(cases_heuristic.strangeEvents) / float(cases_heuristic.totalEvents)) * 100.0)
         print ("\n\nAccuracy (strange): " + str(result2) + " %")

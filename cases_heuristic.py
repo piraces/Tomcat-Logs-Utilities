@@ -308,6 +308,42 @@ def set_use_case_h3(id, event):
     totalEvents += 1
     return new_case
 
+# Checks the actual event and use case, and sets the new use case. Based on H4 heuristic.
+# H4 heuristic checks the "entrypoint" of use cases to determine a new use case, and a list of common use case pages to
+# check the current use case. Furthermore, it considers extra behaviors (from bots and other strange and correct cases).
+def set_use_case_h4(id, event):
+    case = id.case
+    new_case = case
+    found = 0
+    for thing in cases3[case]:
+        if thing in event:
+            found = 1
+    if not found:
+        i = 0
+        while i < 24:
+            if cases3[i][0] in event:
+                new_case = i
+                id.set_case(i)
+                found = 1
+            i += 1
+    if not found:
+        if cases3[index][0] in event or cases3[index][1] in event or cases3[index][2] in event:
+            new_case = index
+            id.set_case(index)
+        else:
+            new_case = strange
+            id.set_case(strange)
+            # Logs event to test the efficiency of the heuristic
+            write_strange_behaviour(id.ip + " || " + id.timestamp + " || " + event + " || " + id.status)
+            global strangeEvents
+            strangeEvents += 1
+            if id.status != '200':
+                global identifiedAttacks
+                identifiedAttacks += 1
+    global totalEvents
+    totalEvents += 1
+    return new_case
+
 # Writes in an output info file, the strange events detected in heuristics (for posterior analysis)
 def write_strange_behaviour(event):
     # Open a file, for writing appending lines
