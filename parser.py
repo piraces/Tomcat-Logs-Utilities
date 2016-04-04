@@ -152,6 +152,7 @@ def default_csv_parser(filename, output, heuristic):
     # Goes to main parser
     csv_parser(tempFile, output, 1, heuristic)
 
+
 # CSV Parser. Applies user session & use cases heuristics.
 def csv_parser(filename, output, date, heuristic):
     print ("--> Applying heuristics & parsing CSV")
@@ -195,6 +196,8 @@ def csv_parser(filename, output, date, heuristic):
             w.writerow(row)
         file_a.close()
         file_b.close()
+        # Deletes extra parameters from events
+        delete_extra_parameters(tempFile, output)
 
 # CSV Parser. Replace event names with other more "legible" and short".
 def replace_event_names(filename, output):
@@ -202,23 +205,67 @@ def replace_event_names(filename, output):
     with open(filename, "rb") as file_a:
         r = csv.reader(file_a, delimiter=';')
         file_b = open(output, "w")
-        w = csv.writer(file_b,  delimiter=';')
-        # Writes the CSV header
-        print line
+        w = csv.writer(file_b, delimiter=';')
         file_b.writelines(line)
         # Reads the entire input file
         for row in r:
-            found = 0
             for thing in pages:
                 if thing in row[event_row]:
                     row[event_row] = thing
-                    found = 1
                 elif index[0] in row[event_row] or index[1] in row[event_row] or index[2] in row[event_row]:
                     row[event_row] = "index"
-                    found = 1
-            # Quits extra event lines (not important)
-            if found:
                 w.writerow(row)
+        file_a.close()
+        file_b.close()
+
+# Events parser. Deletes parameters that doesn't identify use cases.
+def delete_extra_parameters(filename, output):
+    print ("--> Replacing event parameters that are not useful")
+    with open(filename, "rb") as file_a:
+        r = csv.reader(file_a, delimiter=';')
+        file_b = open(output, "w")
+        w = csv.writer(file_b, delimiter=';')
+        # Reads the entire input file
+        for row in r:
+            event = str(row[event_row])
+            # Deletes type of event
+            eventSplit = event.split(' ', 1)
+            eventSplit1 = eventSplit[1]
+            # Splits page from parameters
+            eventSplit2 = eventSplit1.split('?', 1)
+            page = eventSplit2[0]
+            # Checks for parameters that identifies use cases
+            if len(eventSplit2) >= 2:
+                parameters = eventSplit2[1]
+                if "library-edit-reference.jsp" in page and "mode=insert&view=bibtex" in parameters:
+                    page += "?" + "mode=insert&view=bibtex"
+                elif "library-edit-reference.jsp" in page and "mode=insert&view=field" in parameters:
+                    page += "?" + "mode=insert&view=field"
+                elif "library-edit-reference.jsp" in page and "mode=query" in parameters:
+                    page += "?" + "mode=query"
+                elif "library-show-publications-bibtex.jsp" in page and "id=*" in parameters:
+                    page += "?" + "id=*"
+            # Checks for static pages
+            if "/attachedFiles/" in page:
+                page = "/PUBLICATIONS/attachedFiles"
+            elif "/images/" in page:
+                page = "/PUBLICATIONS/images"
+            elif "/styles/" in page:
+                page = "/PUBLICATIONS/styles"
+            elif "/scripts/" in page:
+                page = "/PUBLICATIONS/scripts"
+            elif "/applets/" in page:
+                page = "/PUBLICATIONS/applets"
+            elif "/PATCHES/" in page:
+                page = "/PUBLICATIONS/PATCHES"
+            elif "/config/" in page:
+                page = "/PUBLICATIONS/config"
+            # Deletes possible HTTP info in the event
+            if " HTTP" in eventSplit2[0]:
+                page = page.split(' ', 1)[0]
+            # Close the string to ignore possible CSV delimiters
+            row[event_row] = "\"" + page + "\""
+            w.writerow(row)
         file_a.close()
         file_b.close()
 
@@ -227,10 +274,11 @@ def main():
     if len(sys.argv) > 4:
         if sys.argv[3].lower() == "default":
             print ("\n--> Using CSV header (default): \n" + line + "\n")
-            default_csv_parser(sys.argv[1], sys.argv[2], sys.argv[3])
+            default_csv_parser(sys.argv[1], sys.argv[2], sys.argv[4])
         elif sys.argv[3].lower() == "custom":
             print ("\nUsing CSV header (custom): \n" + line + "\n")
-            csv_parser(sys.argv[1], sys.argv[2], 0, sys.argv[3])
+            csv_parser(sys.argv[1], sys.argv[2], 0, sys.argv[4])
+
         result = 100.0 - ((float(cases_heuristic.identifiedAttacks) / float(cases_heuristic.totalEvents)) * 100.0)
         result2 = 100.0 - ((float(cases_heuristic.strangeEvents) / float(cases_heuristic.totalEvents)) * 100.0)
         print ("\n\nAccuracy (strange): " + str(result2) + " %")
