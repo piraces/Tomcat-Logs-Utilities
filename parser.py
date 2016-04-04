@@ -38,8 +38,12 @@ linePerfect = "CaseId; XForwardedFor; IP; User; Timestamp; Event; Tipo; Bytes; U
 
 line = "IP; Unknown; User; Timestamp; Event; Tipo; Bytes; Session; Case; Case-id\n"
 
-# Temporary file to make CSV conversion.
+# Temporary files to make CSV conversion.
 tempFile = "temp.csv"
+tempFile2 = "temp2.csv"
+
+# Output
+finalOutput = ""
 
 # Numbers of certain rows of the CSV. Useful for not touching the code. Changes between different headers.
 ip_row = 0
@@ -150,7 +154,7 @@ def default_csv_parser(filename, output, heuristic):
                 row[5] = "\"" + row[5] + "\""
                 writer.writerow((row[0], row[1], row[2], row[3], row[5], row[6], row[7]))
     # Goes to main parser
-    csv_parser(tempFile, output, 1, heuristic)
+    csv_parser(tempFile, tempFile2, 1, heuristic)
 
 
 # CSV Parser. Applies user session & use cases heuristics.
@@ -197,7 +201,7 @@ def csv_parser(filename, output, date, heuristic):
         file_a.close()
         file_b.close()
         # Deletes extra parameters from events
-        delete_extra_parameters(tempFile, output)
+        delete_extra_parameters(output, finalOutput)
 
 # CSV Parser. Replace event names with other more "legible" and short".
 def replace_event_names(filename, output):
@@ -226,6 +230,9 @@ def delete_extra_parameters(filename, output):
         file_b = open(output, "w")
         w = csv.writer(file_b, delimiter=';')
         # Reads the entire input file
+        # Skips first row (header)
+        header = r.next()
+        w.writerow(header)
         for row in r:
             event = str(row[event_row])
             # Deletes type of event
@@ -274,6 +281,8 @@ def main():
     if len(sys.argv) > 4:
         if sys.argv[3].lower() == "default":
             print ("\n--> Using CSV header (default): \n" + line + "\n")
+            global finalOutput
+            finalOutput = sys.argv[2]
             default_csv_parser(sys.argv[1], sys.argv[2], sys.argv[4])
         elif sys.argv[3].lower() == "custom":
             print ("\nUsing CSV header (custom): \n" + line + "\n")
