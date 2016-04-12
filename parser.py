@@ -197,7 +197,9 @@ def csv_parser(filename, output, date, heuristic):
             row.append(case)
             caseid = str(session) + str(case)
             row.append(caseid)
-            w.writerow(row)
+            # Temporal restriction
+            if case != 0:
+                w.writerow(row)
         file_a.close()
         file_b.close()
         # Deletes extra parameters from events
@@ -270,8 +272,13 @@ def delete_extra_parameters(filename, output):
             # Deletes possible HTTP info in the event
             if " HTTP" in eventSplit2[0]:
                 page = page.split(' ', 1)[0]
+
+            # Correct multiple slashes
+            page = page.replace("//", "/")
+            page = page.replace("///", "/")
             # Close the string to ignore possible CSV delimiters
             row[event_row] = "\"" + page + "\""
+            # Write the event (page)
             w.writerow(row)
         file_a.close()
         file_b.close()
@@ -288,7 +295,7 @@ def main():
             print ("\nUsing CSV header (custom): \n" + line + "\n")
             csv_parser(sys.argv[1], sys.argv[2], 0, sys.argv[4])
 
-        result = 100.0 - ((float(cases_heuristic.identifiedAttacks) / float(cases_heuristic.totalEvents)) * 100.0)
+        result = 100.0 - ((float(cases_heuristic.identifiedAttacks) / float(cases_heuristic.strangeEvents)) * 100.0)
         result2 = 100.0 - ((float(cases_heuristic.strangeEvents) / float(cases_heuristic.totalEvents)) * 100.0)
         print ("\n\nAccuracy (strange): " + str(result2) + " %")
         print ("Accuracy (strange + not OK): " + str(result) + " %")
