@@ -237,6 +237,14 @@ def delete_extra_parameters(filename, output):
         w.writerow(header)
         for row in r:
             event = str(row[event_row])
+            # Replace URL encoded characters
+            event = event.replace("%3F", "?")
+            event = event.replace("%3f", "?")
+            event = event.replace("%3D", "=")
+            event = event.replace("%26", "&")
+            event = event.replace("%2F", "/")
+            # Replace possible port indication
+            event = event.replace(":8080/", "/")
             # Deletes type of event
             eventSplit = event.split(' ', 1)
             eventSplit1 = eventSplit[1]
@@ -276,6 +284,11 @@ def delete_extra_parameters(filename, output):
             # Correct multiple slashes
             page = page.replace("//", "/")
             page = page.replace("///", "/")
+            # Correct double quotes
+            page = page.replace("\"", "")
+            # All index equality
+            if page == "/" or page == "/PUBLICATIONS" or page == "/PUBLICATIONS/":
+                page = "/PUBLICATIONS"
             # Close the string to ignore possible CSV delimiters
             row[event_row] = "\"" + page + "\""
             # Write the event (page)
