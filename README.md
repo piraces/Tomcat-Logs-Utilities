@@ -25,6 +25,12 @@ Note that the use cases heuristics, only works on custom system logs, their have
 
 Also, if you want to use a custom header, you'll have to modify the global variables in parser.py.
 
+## Installation
+
+This tool requires [Python 2.x](https://www.python.org) to run. It does not work with Python 3.
+
+It does not require additional packages.
+
 ## Execution
 Execution has to follow the format: python parser.py inputFile outputFile (default|custom) [heuristicName].
 
@@ -41,12 +47,6 @@ The above example, will take "log.txt", pre-process it, apply specified heuristi
 
 - **H1_x** heuristics, checks the "entrypoint" of use cases to determine a new use case, and a list of common use case pages to check the current use case. Different versions are provided, with different levels of "granularity" (extra behaviors detected).
 - **H2** heuristic, checks the longest path possible of use cases to determine a new use case, and a list of common use case pages to check the current use case. Furthermore, it considers extra behaviors (from bots and other strange and correct cases).
-
-### Installation
-
-This tool requires [Python 2.x](https://www.python.org) to run. It does not work with Python 3.
-
-It does not require additional packages.
 
 
 License
