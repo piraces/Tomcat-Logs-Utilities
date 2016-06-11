@@ -2,7 +2,9 @@
 # -*- coding: utf-8 -*-
 
 # Author: Raúl Piracés Alastuey
-# Execution: python parser.py inputFile outputFile (default|custom)
+# Execution: python parser.py inputFile outputFile (default|custom) [heuristicName]
+# Execution example: python parser.py logW.csv output.csv default h1_3
+# Available heuristics names: h1_0, h1_1, h1_2, h1_3, h2.
 
 """
 Program to parse and modify logs from Tomcat (v7) with default logging configuration.
@@ -180,26 +182,28 @@ def csv_parser(filename, output, date, heuristic):
             # Attempt to apply user session heuristic
             session = change_session(id, identifications)
             # Attempt to apply use cases heuristic
-            if heuristic.lower() == "h1":
-                case = cases_heuristic.set_use_case_h1(id, row[event_row])
+            if heuristic.lower() == "h1_0":
+                case = cases_heuristic.set_use_case_h1_0(id, row[event_row])
+            elif heuristic.lower() == "h1_1":
+                case = cases_heuristic.set_use_case_h1_1(id, row[event_row])
+            elif heuristic.lower() == "h1_2":
+                case = cases_heuristic.set_use_case_h1_2(id, row[event_row])
+            elif heuristic.lower() == "h1_3":
+                case = cases_heuristic.set_use_case_h1_3(id, row[event_row], identifications)
             elif heuristic.lower() == "h2":
-                case = cases_heuristic.set_use_case_h2(id, row[event_row])
-            elif heuristic.lower() == "h3":
-                case = cases_heuristic.set_use_case_h3(id, row[event_row])
-            elif heuristic.lower() == "h4":
-                case = cases_heuristic.set_use_case_h4(id, row[event_row], identifications)
+                case = cases_heuristic.set_use_case_h1_3(id, row[event_row], identifications)
             else:
-                # By default, applies the H3 heuristic
-                case = cases_heuristic.set_use_case_h3(id, row[event_row])
+                # By default, applies the best H1 heuristic
+                case = cases_heuristic.set_use_case_h1_3(id, row[event_row])
             last_use_case = case
             # Append 'case id' column (and others)
             row.append(str(session))
             row.append(case)
             caseid = str(session) + str(case)
             row.append(caseid)
-            # Temporal restriction
-            if case != 0:
-                w.writerow(row)
+            # Temporal restriction for removing unrecognized events
+            # if case != 0:
+            w.writerow(row)
         file_a.close()
         file_b.close()
         # Deletes extra parameters from events
@@ -255,9 +259,11 @@ def delete_extra_parameters(filename, output):
             if len(eventSplit2) >= 2:
                 parameters = eventSplit2[1]
                 if "library-edit-reference.jsp" in page and "mode=insert&view=bibtex" in parameters:
-                    page += "?" + "mode=insert&view=bibtex"
+                    # page += "?" + "mode=insert&view=bibtex"
+                    page += "?" + "mode=insert"
                 elif "library-edit-reference.jsp" in page and "mode=insert&view=field" in parameters:
-                    page += "?" + "mode=insert&view=field"
+                    # page += "?" + "mode=insert&view=field"
+                    page += "?" + "mode=insert"
                 elif "library-edit-reference.jsp" in page and "mode=query" in parameters:
                     page += "?" + "mode=query"
                 elif "library-show-publications-bibtex.jsp" in page and "id=*" in parameters:
