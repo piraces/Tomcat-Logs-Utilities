@@ -1,8 +1,10 @@
-# Tomcat Logs Utilities
+# Process Mining for Security - Tomcat Logs Utilities
 
 This repository contains an extensible Python script, for parsing Apache Tomcat logs with several purposes.
 
 This tool has been used for tests with ["Process Mining for Security" metodology](http://sid.cps.unizar.es/PMS/).
+
+The related project can be found in this repository in PDF format [here](docs/TAZ-TFG-2016-2185.pdf).
 
 ## Functions
 
